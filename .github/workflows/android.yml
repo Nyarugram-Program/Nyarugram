@@ -49,7 +49,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: Install native build tools
         run: |
