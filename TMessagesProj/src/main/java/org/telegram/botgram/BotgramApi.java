@@ -23,10 +23,13 @@ public final class BotgramApi {
     public static final class ApiError extends IOException {
         public final int status;
         ApiError(int status, String message) { super(message); this.status = status; }
+        ApiError(int status, String message, Throwable cause) { super(message, cause); this.status = status; }
     }
 
     public final String baseUrl;
     private final String token;
+    private final boolean largeClientHello;
+    public boolean usesLargeClientHello() { return largeClientHello; }
     private String selectedProtocol;
 
     /** Protobuf-only capability negotiation before any RPC; the protocol is pinned to this bearer. */
@@ -54,6 +57,10 @@ public final class BotgramApi {
     }
 
     public BotgramApi(String baseUrl, String token) {
+        this(baseUrl, token, false);
+    }
+
+    public BotgramApi(String baseUrl, String token, boolean largeClientHello) {
         URI uri = URI.create(baseUrl.trim());
         if (!("https".equals(uri.getScheme()) || "http".equals(uri.getScheme())) || uri.getHost() == null
                 || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
@@ -66,6 +73,7 @@ public final class BotgramApi {
         }
         this.baseUrl = baseUrl.trim().replaceAll("/+$", "");
         this.token = token;
+        this.largeClientHello = largeClientHello;
     }
 
     /** Retained only for diagnostics; business traffic never uses JSON HTTP. */
@@ -76,6 +84,17 @@ public final class BotgramApi {
 
     public JSONArray array(String path) throws Exception { return new JSONArray(request("GET", path, null)); }
 
+    private void configureTls(HttpURLConnection connection) throws IOException {
+        if (largeClientHello && connection instanceof javax.net.ssl.HttpsURLConnection) {
+            if (android.os.Build.VERSION.SDK_INT < 29)
+                throw new ApiError(501, "BOTGRAM_LARGE_CLIENT_HELLO_UNSUPPORTED");
+            URL endpoint = connection.getURL();
+            ((javax.net.ssl.HttpsURLConnection) connection).setSSLSocketFactory(
+                    new BotgramLargeClientHelloSocketFactory(endpoint.getHost(),
+                            endpoint.getPort() == -1 ? 443 : endpoint.getPort()));
+        }
+    }
+
     public String request(String method, String path, JSONObject body) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
         connection.setInstanceFollowRedirects(false);
@@ -85,6 +104,7 @@ public final class BotgramApi {
         connection.setRequestProperty("Accept", "text/plain");
         if (token != null) connection.setRequestProperty("Authorization", "Bearer " + token);
         try {
+            configureTls(connection);
             if (body != null) {
                 byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                 connection.setDoOutput(true);
@@ -116,9 +136,9 @@ public final class BotgramApi {
             }
             return response;
         } catch (javax.net.ssl.SSLPeerUnverifiedException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED");
+            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED", error);
         } catch (javax.net.ssl.SSLHandshakeException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED");
+            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED", error);
         } finally { connection.disconnect(); }
     }
 
@@ -147,6 +167,7 @@ public final class BotgramApi {
         connection.setRequestProperty("Content-Type", "application/x-protobuf");
         if (token != null) connection.setRequestProperty("Authorization", "Bearer " + token);
         try {
+            configureTls(connection);
             connection.setDoOutput(true);
             connection.setFixedLengthStreamingMode(bytes.length);
             try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
@@ -192,9 +213,9 @@ public final class BotgramApi {
             }
             return response;
         } catch (javax.net.ssl.SSLPeerUnverifiedException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED");
+            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED", error);
         } catch (javax.net.ssl.SSLHandshakeException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED");
+            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED", error);
         } finally { connection.disconnect(); }
     }
 
@@ -221,6 +242,7 @@ public final class BotgramApi {
         connection.setRequestProperty("Content-Type", "application/octet-stream");
         if (token != null) connection.setRequestProperty("Authorization", "Bearer " + token);
         try {
+            configureTls(connection);
             connection.setDoOutput(true);
             connection.setFixedLengthStreamingMode(bytes.length);
             try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
@@ -228,9 +250,9 @@ public final class BotgramApi {
             if (status < 200 || status >= 300) throw mediaError(connection, status);
             drain(connection);
         } catch (javax.net.ssl.SSLPeerUnverifiedException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED");
+            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED", error);
         } catch (javax.net.ssl.SSLHandshakeException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED");
+            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED", error);
         } finally { connection.disconnect(); }
     }
 
@@ -245,6 +267,7 @@ public final class BotgramApi {
         connection.setRequestProperty("Accept", "application/octet-stream");
         if (token != null) connection.setRequestProperty("Authorization", "Bearer " + token);
         try {
+            configureTls(connection);
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) throw mediaError(connection, status);
             long totalSize = -1;
@@ -254,9 +277,9 @@ public final class BotgramApi {
             if (bytes.length > limit) throw new ApiError(502, "BOTGRAM_MEDIA_RESPONSE_TOO_LARGE");
             return new MediaRange(bytes, totalSize);
         } catch (javax.net.ssl.SSLPeerUnverifiedException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED");
+            throw new ApiError(495, "BOTGRAM_TLS_PEER_UNVERIFIED", error);
         } catch (javax.net.ssl.SSLHandshakeException error) {
-            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED");
+            throw new ApiError(495, "BOTGRAM_TLS_HANDSHAKE_FAILED", error);
         } finally { connection.disconnect(); }
     }
 

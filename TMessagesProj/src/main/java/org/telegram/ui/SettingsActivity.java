@@ -755,6 +755,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (items.get(items.size() - 1).viewType != UniversalAdapter.VIEW_TYPE_SHADOW)
                 items.add(UItem.asShadow(null));
             items.add(UItem.asHeader(getString(R.string.SettingsDebug)));
+            if (org.telegram.botgram.BotgramTransport.get(currentAccount).enabled()) {
+                items.add(SettingCell.Factory.of(28, 0xFF55CA47, 0xFF27B434, 0,
+                        getString(R.string.BotgramLargeClientHello), null,
+                        getString(org.telegram.botgram.BotgramTransport.get(currentAccount).largeClientHello()
+                                ? R.string.BotgramEnabled : R.string.BotgramDisabled)));
+            }
             items.add(SettingCell.Factory.of(20, 0xFF55CA47, 0xFF27B434, 0, getString(R.string.BotgramSaveLogs)));
             items.add(SettingCell.Factory.of(21, 0xFF55CA47, 0xFF27B434, 0, getString(R.string.BotgramViewLogs)));
         }
@@ -879,6 +885,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
             case 20:
                 BotgramLogsActivity.saveLogs(this);
+                break;
+            case 28:
+                org.telegram.botgram.BotgramConnectionSettingsActivity.toggleAccount(this, currentAccount,
+                        () -> { if (listView != null) listView.adapter.update(true); });
                 break;
             case 21:
                 presentSettingFragment(new BotgramLogsActivity());

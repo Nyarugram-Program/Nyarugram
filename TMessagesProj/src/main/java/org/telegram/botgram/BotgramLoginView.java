@@ -41,6 +41,7 @@ public final class BotgramLoginView extends SlideView {
     private final ArrayList<EditTextBoldCursor> fields = new ArrayList<>();
     private final LinearLayout form;
     private final TextView title, subtitle, switchMode;
+    private boolean largeClientHello;
     private final EditTextBoldCursor server, port, username, displayName, password, additionalPassword;
     private final Completion completion;
     private final Consumer<Boolean> loading;
@@ -151,6 +152,14 @@ public final class BotgramLoginView extends SlideView {
         updateColors();
     }
 
+    public org.telegram.ui.ActionBar.BaseFragment connectionSettings() {
+        if (disposed || busy || modeAnimating) return null;
+        AndroidUtilities.hideKeyboard(this);
+        return new BotgramConnectionSettingsActivity(largeClientHello, enabled -> {
+            if (!disposed && !busy) largeClientHello = enabled;
+        });
+    }
+
     private TextView label(Context context, int size, boolean bold) {
         TextView view = new TextView(context);
         view.setTextSize(size);
@@ -245,6 +254,11 @@ public final class BotgramLoginView extends SlideView {
             return;
         }
         final String name = username.getText().toString().trim();
+        final boolean useLargeClientHello = largeClientHello;
+        if (useLargeClientHello && !address.startsWith("https://")) {
+            showError.accept(LocaleController.getString(R.string.BotgramLargeClientHelloHttpsRequired));
+            return;
+        }
         final String secret = password.getText().toString(), display = displayName.getText().toString().trim();
         final boolean register = registering;
         final boolean needsAdditionalPassword = !register && ((View) additionalPassword.getParent()).getVisibility() == VISIBLE;
@@ -254,8 +268,9 @@ public final class BotgramLoginView extends SlideView {
         Consumer<String> authenticate = country -> {
             if (disposed || id != attempt) return;
             request = worker.submit(() -> {
+                int failureStage = R.string.BotgramLoginRequestFailed;
                 try {
-                    BotgramApi api = new BotgramApi(address, null);
+                    BotgramApi api = new BotgramApi(address, null, useLargeClientHello);
                     org.telegram.botgram.protocol.v1.BotgramRpc.RpcRequest.Builder builder = BotgramApi.request();
                     if (register) {
                         org.telegram.botgram.protocol.v1.BotgramRpc.AuthRegisterRequest.Builder registration =
@@ -271,13 +286,15 @@ public final class BotgramLoginView extends SlideView {
                         builder.setAuthLogin(login);
                     }
                     org.telegram.botgram.protocol.v1.BotgramRpc.RpcResponse response = api.authRpc(builder.build(), false);
+                    failureStage = R.string.BotgramLoginResponseFailed;
                     org.telegram.botgram.protocol.v1.BotgramRpc.AuthSession session =
                             register ? response.getAuthRegister() : response.getAuthLogin();
                     TLRPC.User user = BotgramTlIdentity.user(session.getUser());
                     if (disposed || id != attempt) return;
+                    failureStage = R.string.BotgramLoginSessionFailed;
                     BotgramSession saved = new BotgramSession(getContext().getApplicationContext(), account);
                     if (!saved.save(api.baseUrl, session.getToken(), session.getUser().getUserId(),
-                            session.getUser().getDisplayName(), () -> !disposed && id == attempt)) return;
+                            session.getUser().getDisplayName(), useLargeClientHello, () -> !disposed && id == attempt)) return;
                     AndroidUtilities.runOnUIThread(() -> BotgramTransport.get(account).whenReady(() -> {
                         if (disposed || id != attempt) {
                             Utilities.globalQueue.postRunnable(saved::clearIfCurrent);
@@ -292,6 +309,7 @@ public final class BotgramLoginView extends SlideView {
                         });
                     }));
                 } catch (Exception error) {
+                    final int failedStage = failureStage;
                     AndroidUtilities.runOnUIThread(() -> {
                         if (disposed || id != attempt) return;
                         setBusy(false);
@@ -301,7 +319,7 @@ public final class BotgramLoginView extends SlideView {
                             AndroidUtilities.showKeyboard(additionalPassword);
                             return;
                         }
-                        showError.accept(errorText(error));
+                        showError.accept(errorText(error, failedStage));
                     });
                 }
             });
@@ -312,7 +330,7 @@ public final class BotgramLoginView extends SlideView {
         } else authenticate.accept(null);
     }
 
-    private String errorText(Exception error) {
+    private String errorText(Exception error, int failureStage) {
         if (error instanceof BotgramApi.ApiError) {
             if (((BotgramApi.ApiError) error).status == 410 && BotgramApi.JSON_API_RETIRED.equals(error.getMessage()))
                 return BotgramApi.JSON_API_RETIRED;
@@ -321,10 +339,30 @@ public final class BotgramLoginView extends SlideView {
             if ("PASSWORD_HASH_INVALID".equals(error.getMessage())) return LocaleController.getString(R.string.CheckPasswordWrong);
             if ("invalid_credentials".equals(error.getMessage())) return LocaleController.getString(R.string.BotgramInvalidCredentials);
             if ("username_taken".equals(error.getMessage())) return LocaleController.getString(R.string.BotgramUsernameTaken);
+            if ("BOTGRAM_TLS_PEER_UNVERIFIED".equals(error.getMessage())
+                    || "BOTGRAM_TLS_HANDSHAKE_FAILED".equals(error.getMessage())) {
+                return LocaleController.formatString(R.string.BotgramLoginRequestFailed,
+                        error.getMessage() + " / " + BotgramTlsDiagnostics.describe(error.getCause()));
+            }
             return LocaleController.getString(R.string.BotgramAuthenticationFailed);
         }
-        if (error instanceof IllegalArgumentException) return LocaleController.getString(R.string.BotgramInvalidServer);
-        return LocaleController.getString(R.string.BotgramConnectionFailed);
+        if (error instanceof IllegalArgumentException && failureStage == R.string.BotgramLoginRequestFailed)
+            return LocaleController.getString(R.string.BotgramInvalidServer);
+        // Keep response/account details private. Socket diagnostics use only known OS error codes.
+        String reason = error.getClass().getSimpleName();
+        if (error.getCause() != null) reason += " / " + error.getCause().getClass().getSimpleName();
+        if (error instanceof java.net.SocketException) {
+            if (error.getCause() instanceof android.system.ErrnoException) {
+                reason += " / errno=" + ((android.system.ErrnoException) error.getCause()).errno;
+            } else if (error.getMessage() != null) {
+                java.util.regex.Matcher socketReason = java.util.regex.Pattern.compile(
+                        "\\b(EPERM|EACCES|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|EBADF|ENOTCONN|ETIMEDOUT|EPIPE|"
+                                + "connection reset|socket closed|connection refused|network is unreachable|software caused connection abort)\\b",
+                        java.util.regex.Pattern.CASE_INSENSITIVE).matcher(error.getMessage());
+                if (socketReason.find()) reason += " / " + socketReason.group();
+            }
+        }
+        return LocaleController.formatString(failureStage, reason);
     }
 
     private void setBusy(boolean value) {

@@ -361,6 +361,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private RadialProgressView radialProgressView;
 
     private ImageView proxyButtonView;
+    private ImageView botgramSettingsButton;
     private ProxyDrawable proxyDrawable;
 
     // Open animation stuff
@@ -587,6 +588,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 marginLayoutParams.topMargin = AndroidUtilities.dp(16) + statusBarHeight;
 
                 marginLayoutParams = (MarginLayoutParams) radialProgressView.getLayoutParams();
+                if (botgramSettingsButton != null) {
+                    ((MarginLayoutParams) botgramSettingsButton.getLayoutParams()).topMargin = AndroidUtilities.dp(8) + statusBarHeight;
+                }
                 marginLayoutParams.topMargin = AndroidUtilities.dp(16) + statusBarHeight;
 
                 if (emailChangeSkipButton != null) {
@@ -676,6 +680,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                     authorization.user = user;
                     onAuthSuccess(authorization);
                 }, loading -> {
+                    if (botgramSettingsButton != null) {
+                        botgramSettingsButton.setVisibility(loading ? View.INVISIBLE : View.VISIBLE);
+                    }
                     if (loading) needShowProgress(0);
                     else needHideProgress(false);
                 }, message -> needShowAlert(getString(R.string.BotgramSignIn), message));
@@ -789,6 +796,19 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         proxyButtonView.setVisibility(View.GONE);
         sizeNotifierFrameLayout.addView(proxyButtonView, LayoutHelper.createFrame(32, 32, Gravity.RIGHT | Gravity.TOP, 16, 16, 16, 16));
         updateProxyButton(false, true);
+
+        if (botgramLoginView != null) {
+            botgramSettingsButton = new ImageView(context);
+            botgramSettingsButton.setImageResource(R.drawable.msg_settings);
+            botgramSettingsButton.setScaleType(ImageView.ScaleType.CENTER);
+            botgramSettingsButton.setContentDescription(getString(R.string.BotgramConnectionSettings));
+            botgramSettingsButton.setOnClickListener(v -> {
+                BaseFragment settings = botgramLoginView.connectionSettings();
+                if (settings != null) presentFragment(settings);
+            });
+            sizeNotifierFrameLayout.addView(botgramSettingsButton,
+                    LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.TOP, 0, 8, 8, 0));
+        }
 
         radialProgressView = new RadialProgressView(context);
         radialProgressView.setSize(AndroidUtilities.dp(20));
@@ -8509,6 +8529,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
         proxyDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN));
         proxyButtonView.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector)));
+        if (botgramSettingsButton != null) {
+            botgramSettingsButton.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            botgramSettingsButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector)));
+        }
 
         radialProgressView.setProgressColor(Theme.getColor(Theme.key_chats_actionBackground));
 
@@ -8847,6 +8871,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void showProxyButton(boolean show, boolean animated) {
+        if (botgramLoginView != null) {
+            proxyButtonView.setVisibility(View.GONE);
+            return;
+        }
         if (show == proxyButtonVisible) {
             return;
         }

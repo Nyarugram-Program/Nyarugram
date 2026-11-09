@@ -657,6 +657,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int debugHeaderRow;
     private int saveLogsRow;
     private int viewLogsRow;
+    private int largeClientHelloRow;
     private int clearLogsRow;
     private int switchBackendRow;
     private int versionRow;
@@ -4614,6 +4615,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 BotgramLogsActivity.saveLogs(this);
             } else if (position == viewLogsRow) {
                 presentFragment(new BotgramLogsActivity());
+            } else if (position == largeClientHelloRow) {
+                org.telegram.botgram.BotgramConnectionSettingsActivity.toggleAccount(this, currentAccount,
+                        () -> { if (listAdapter != null) listAdapter.notifyDataSetChanged(); });
             } else if (position == clearLogsRow) {
                 FileLog.cleanupLogs();
             } else if (position == switchBackendRow) {
@@ -10228,6 +10232,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         debugHeaderRow = -1;
         saveLogsRow = -1;
         viewLogsRow = -1;
+        largeClientHelloRow = -1;
         clearLogsRow = -1;
         switchBackendRow = -1;
         versionRow = -1;
@@ -10405,6 +10410,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
                     debugHeaderRow = rowCount++;
+                    if (org.telegram.botgram.BotgramTransport.get(currentAccount).enabled()) {
+                        largeClientHelloRow = rowCount++;
+                    }
                 }
                 if (BuildVars.LOGS_ENABLED) {
                     saveLogsRow = rowCount++;
@@ -13620,6 +13628,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         textCell.setTextAndIcon(LocaleController.getString(R.string.PrivacyPolicy), R.drawable.msg2_policy, false);
                     } else if (position == saveLogsRow) {
                         textCell.setText(LocaleController.getString(R.string.BotgramSaveLogs), true);
+                    } else if (position == largeClientHelloRow) {
+                        textCell.setTextAndValue(LocaleController.getString(R.string.BotgramLargeClientHello),
+                                LocaleController.getString(org.telegram.botgram.BotgramTransport.get(currentAccount).largeClientHello()
+                                        ? R.string.BotgramEnabled : R.string.BotgramDisabled), true);
                     } else if (position == viewLogsRow) {
                         textCell.setText(LocaleController.getString(R.string.BotgramViewLogs), false);
                     } else if (position == clearLogsRow) {
@@ -14052,7 +14064,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         position == languageRow || position == setUsernameRow || position == bioRow ||
                         position == versionRow || position == dataRow || position == chatRow ||
                         position == questionRow || position == devicesRow || position == filtersRow || position == stickersRow ||
-                        position == faqRow || position == policyRow || position == saveLogsRow || position == viewLogsRow ||
+                        position == faqRow || position == policyRow || position == saveLogsRow || position == viewLogsRow || position == largeClientHelloRow ||
                         position == clearLogsRow || position == switchBackendRow || position == setAvatarRow ||
                         position == addToGroupButtonRow || position == premiumRow || position == premiumGiftingRow ||
                         position == businessRow || position == liteModeRow || position == birthdayRow || position == channelRow ||
@@ -14098,7 +14110,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     position == sendMessageRow || position == notificationRow || position == privacyRow ||
                     position == languageRow || position == dataRow || position == chatRow ||
                     position == questionRow || position == devicesRow || position == filtersRow || position == stickersRow ||
-                    position == faqRow || position == policyRow || position == saveLogsRow || position == viewLogsRow ||
+                    position == faqRow || position == policyRow || position == saveLogsRow || position == viewLogsRow || position == largeClientHelloRow ||
                     position == clearLogsRow || position == switchBackendRow || position == setAvatarRow || position == addToGroupButtonRow ||
                     position == addToContactsRow || position == botgramE2eeRow || position == liteModeRow || position == premiumGiftingRow || position == businessRow ||
                     position == botStarsBalanceRow || position == botTonBalanceRow || position == channelBalanceRow || position == botPermissionLocation ||
@@ -15471,6 +15483,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             put(++pointer, debugHeaderRow, sparseIntArray);
             put(++pointer, saveLogsRow, sparseIntArray);
             put(++pointer, viewLogsRow, sparseIntArray);
+            put(++pointer, largeClientHelloRow, sparseIntArray);
             put(++pointer, clearLogsRow, sparseIntArray);
             put(++pointer, switchBackendRow, sparseIntArray);
             put(++pointer, versionRow, sparseIntArray);

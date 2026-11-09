@@ -25,12 +25,17 @@ public final class BotgramSession {
     public String userId;
     public String displayName;
     public String token;
+    public volatile boolean largeClientHello;
     private String savedCiphertext;
 
     public BotgramSession(Context context, int account) {
         prefs = context.getSharedPreferences("botgram.session." + account, Context.MODE_PRIVATE);
         String savedServer = prefs.getString("server", "");
         server = BotgramServerAddress.migrateLegacy(savedServer);
+        // Older sessions did not retain the login TLS option. Use the compatible
+        // handshake for existing HTTPS bindings on supported Android versions.
+        largeClientHello = prefs.getBoolean("largeClientHello",
+                android.os.Build.VERSION.SDK_INT >= 29 && server.startsWith("https://"));
         if (!server.equals(savedServer)) prefs.edit().putString("server", server).apply();
         try {
             String encrypted = prefs.getString("token", null);
@@ -68,6 +73,11 @@ public final class BotgramSession {
 
     /** Protobuf authentication plane: no JSON session object is parsed. */
     public boolean save(String server, String token, String userId, String displayName, BooleanSupplier active) throws Exception {
+        return save(server, token, userId, displayName, false, active);
+    }
+
+    public boolean save(String server, String token, String userId, String displayName,
+                        boolean largeClientHello, BooleanSupplier active) throws Exception {
         String newToken = token;
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key());
@@ -76,13 +86,15 @@ public final class BotgramSession {
             if (!active.getAsBoolean()) return false;
             if (!prefs.edit().putString("server", server).putString("token", encrypted)
                     .putString("iv", Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
-                    .putString("userId", userId).putString("displayName", displayName).remove("protocol").commit()) {
+                    .putString("userId", userId).putString("displayName", displayName)
+                    .putBoolean("largeClientHello", largeClientHello).remove("protocol").commit()) {
                 throw new java.io.IOException("Unable to save login session");
             }
             this.server = server;
             this.token = newToken;
             this.userId = userId;
             this.displayName = displayName;
+            this.largeClientHello = largeClientHello;
             savedCiphertext = encrypted;
             if (!active.getAsBoolean()) {
                 clearIfCurrent();
@@ -96,6 +108,16 @@ public final class BotgramSession {
         synchronized (prefs) {
             return savedCiphertext != null && savedCiphertext.equals(prefs.getString("token", null))
                     ? prefs.getString("protocol", null) : null;
+        }
+    }
+
+    public void setLargeClientHello(boolean enabled) throws java.io.IOException {
+        synchronized (prefs) {
+            if (token == null || savedCiphertext == null || !savedCiphertext.equals(prefs.getString("token", null)))
+                throw new java.io.IOException("Session no longer current");
+            if (!prefs.edit().putBoolean("largeClientHello", enabled).commit())
+                throw new java.io.IOException("Unable to save TLS setting");
+            largeClientHello = enabled;
         }
     }
 
@@ -119,7 +141,8 @@ public final class BotgramSession {
         synchronized (prefs) {
             token = null; userId = null; displayName = null;
             if (savedCiphertext != null && savedCiphertext.equals(prefs.getString("token", null))) {
-                prefs.edit().remove("token").remove("iv").remove("userId").remove("displayName").remove("protocol").apply();
+                prefs.edit().remove("token").remove("iv").remove("userId").remove("displayName")
+                        .remove("protocol").remove("largeClientHello").apply();
             }
         }
     }

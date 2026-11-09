@@ -31,7 +31,7 @@ Botgram 是保留 Telegram Android 原页面、接入自建后端的客户端。
 - 项目要求用户自行部署后端及数据库、TLS 代理、TURN/STUN 等配套服务，不提供公共服务器或托管账号服务。文档不得包含实际公网服务地址，不指定默认公共连接目标；地址示例使用私网地址，协议身份域名由部署者显式配置。开源依赖、数据来源和技术资料链接不属于服务入口。
 
 - Settings 与旧版个人设置页恢复 Nyarugram Premium：默认未激活，点击开通并收到自身后端确认后免费激活；不要走 Telegram 支付。Money、Telegram Business、Help 和 Devices 仍隐藏，同时考虑搜索和深链接入口。
-- Debug 区块及版本号隐藏菜单仅保留“保存日志”和“查看日志”，复用 Telegram UI。日志导出使用系统文件选择器，预览最多读取末尾 256 KiB。
+- Debug 区块保留“保存日志”“查看日志”及按账号保存的“大型 ClientHello”开启/关闭设置，版本号隐藏菜单仅保留两个日志入口，复用 Telegram UI。登录和注册页通过右上角齿轮平滑进入连接设置。日志导出使用系统文件选择器，预览最多读取末尾 256 KiB。
 - 简体中文随 APK 离线打包。英文文案放在 `res/values/strings.xml`；自定义中文同时维护 `Tools/Import-BotgramChinese.ps1` 的本地翻译字典，再运行脚本生成 `values-zh/strings.xml`。不要只修改会被重新生成覆盖的中文文件。
 - 用户可见名称为 Gram ID，显示格式为 `+区域代码 八位数字`，例如 `+030 12345678`；三位区域代码保留前导零，后八位不可全零。API、wire、内部类和资源键仍可用 GID，不重命名协议字段。
 - 所有账号的发送礼物暂时禁用，点击使用原生弹窗提示“暂无可用的礼物”；在构造联网与礼物支付前拦截，不禁用普通订阅、充值、抽奖或共享礼物外观组件。Gram 收入只移除 Fragment 充值，保留收益、统计及提现。
@@ -56,7 +56,7 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 
 此 JDK 路径适用于当前电脑；其他环境先确认已安装路径。脚本使用 D 盘 Gradle 8.13，任务为 `:TMessagesProj_AppStandalone:assembleAfatDebug`，产物为 `TMessagesProj_AppStandalone/build/outputs/apk/afat/debug/Nyarugram-debug.apk`。需要准备依赖时使用 `Tools/Prepare-BotgramBuild.ps1`，不要对已有环境反复重新下载。
 
-- 版本从 `gradle.properties` 读取。用户要求升级时同步调整 `APP_VERSION_NAME` 与递增的 `APP_VERSION_CODE`，检查最终 APK 元数据；不要为文档修改自行升版。
+- 版本从 `gradle.properties` 读取。每次修改本仓库内容（包括代码、资源、脚本和文档）都必须同步更新 `APP_VERSION_NAME` 与严格递增的 `APP_VERSION_CODE`。默认递增版本名称末位修订号，用户指定版本时按其要求执行。APK 交付前必须检查最终产物的包名、版本名称和版本代码，并同步更新交付记录。
 - 当前包名为 `me.nyarugram.messenger`，可与 Telegram 共存；不要未经任务要求更换包名或签名。
 - 完成所有源代码修改后再构建，避免在编译过程中修改源文件。若发生这种情况，重新构建后再验证交付物。
 - 遇到 Gradle 端口绑定失败先检查运行环境并做有限重试，不随意终止其他应用、关闭防火墙或修改系统网络设置。

@@ -11532,6 +11532,15 @@
   <string name="BotgramAuthenticationFailed">无法登录，请检查填写的信息后重试。</string>
   <string name="BotgramInvalidServer">请输入不含路径的 HTTP 或 HTTPS 主机地址，端口请单独填写。</string>
   <string name="BotgramConnectionFailed">无法连接或保存登录状态，请重试。</string>
+  <string name="BotgramLoginRequestFailed">请求服务器失败（%1$s），请提供此错误代码。</string>
+  <string name="BotgramLoginResponseFailed">处理登录响应失败（%1$s），请提供此错误代码。</string>
+  <string name="BotgramLoginSessionFailed">安全保存登录状态失败（%1$s），请提供此错误代码。</string>
+  <string name="BotgramConnectionSettings">连接设置</string>
+  <string name="BotgramEnabled">开启</string>
+  <string name="BotgramDisabled">关闭</string>
+  <string name="BotgramLargeClientHello">大型 ClientHello</string>
+  <string name="BotgramLargeClientHelloUnsupported">大型 ClientHello 需要 Android 10 或更高版本。</string>
+  <string name="BotgramLargeClientHelloHttpsRequired">大型 ClientHello 仅适用于 HTTPS 连接。</string>
   <string name="BotgramContactGidInfo">请输入联系人的 Gram ID，例如 +030 12345678。</string>
   <string name="BotgramContactGidInvalid">请输入有效的三位 M49 区域代码和八位数字，后八位不可为 00000000。</string>
   <string name="BotgramContactGidNotFound">未找到使用该 Gram ID 的账号。</string>

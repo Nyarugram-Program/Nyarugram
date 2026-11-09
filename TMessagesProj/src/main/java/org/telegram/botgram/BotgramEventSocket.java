@@ -90,6 +90,7 @@ final class BotgramEventSocket {
         final long attempt = ++generation;
         final String origin = server;
         final String bearer = token;
+        final boolean largeClientHello = credentials.largeClientHello;
         final long after = cursor;
         network.execute(() -> {
             try {
@@ -99,7 +100,11 @@ final class BotgramEventSocket {
                 if (base.startsWith("https://")) {
                     SSLContext tls = SSLContext.getInstance("TLS");
                     tls.init(null, null, null); // System trust managers only.
-                    factory.setSSLSocketFactory(tls.getSocketFactory()).setVerifyHostname(true);
+                    java.net.URI endpoint = java.net.URI.create(base);
+                    factory.setSSLSocketFactory(largeClientHello
+                            ? new BotgramLargeClientHelloSocketFactory(endpoint.getHost(),
+                                    endpoint.getPort() == -1 ? 443 : endpoint.getPort())
+                            : tls.getSocketFactory()).setVerifyHostname(true);
                 }
                 WebSocket ws = factory.createSocket(BotgramServerAddress.eventEndpoint(base, after));
                 // JSON event subprotocol is retired. Only Protobuf hints are offered.

@@ -1,5 +1,13 @@
 # 原 Telegram 页面接入说明
 
+## 2026-11-09 大型 ClientHello 的会话传输
+
+登录及注册页右上角齿轮打开原生“连接设置”页面，使用 Telegram 的页面过渡动画，内含大型 ClientHello 开关。当前设置页及旧个人设置页的调试区均显示“大型 ClientHello”和开启/关闭状态；修改按账号保存，刷新后续请求使用的 TLS 配置并重连实时通道。
+
+登录或注册时选择的“大型 ClientHello”随账号会话保存，后续认证、消息 RPC、媒体传输及实时 WSS 连接使用同一选项，重新启动后仍有效。API 29 以下不启用。旧版本未保存该字段的 HTTPS 会话在 API 29 及以上默认启用，以兼容需要大型握手的部署；重新登录后按本次勾选状态保存。各账号的设置隔离，退出时清除。
+
+填充通过合法 ALPN 项使 ClientHello TLS 记录达到至少 1500 字节，每项协议名最多 127 字节，兼容 Android Conscrypt 在证书校验时读取 SSLParameters 的长度解析。证书链和主机名继续由系统验证。
+
 ## 2026-11-08 媒体发送与相册（批次 I）
 
 原聊天页的拍照、相册与文件发送已接入自建后端：客户端把 `upload.saveFilePart` / `upload.saveBigFilePart` 分片发到 `PUT /api/v1/media/{client_file_id}/{part}`，下载 `upload.getFile` 按 offset/limit 取 `GET /api/v1/media/{media_id}`，二者与 `/api/v1/rpc` 使用同一 Bearer 会话但走独立二进制协议，上传和下载各自使用独立线程池，不阻塞聊天 RPC。`messages.sendMedia` / `sendMultiMedia` / `uploadMedia` 映射为明确字段，相册 2–10 项共享一个 `grouped_id`；响应生成 `TL_photo` / `TL_document`（id、mime、大小、尺寸、时长、文件名）供原页面渲染。媒体作为明文内容同样经过 E2EE 准入，加密会话拒绝。

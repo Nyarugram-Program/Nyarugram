@@ -95,6 +95,15 @@
     <string name="BotgramAuthenticationFailed">Unable to log in. Please check your details and try again.</string>
     <string name="BotgramInvalidServer">Enter an HTTP or HTTPS host without a path. Enter the port separately.</string>
     <string name="BotgramConnectionFailed">Unable to connect or save your session. Please try again.</string>
+    <string name="BotgramLoginRequestFailed">Unable to contact the server (%1$s). Please share this error code.</string>
+    <string name="BotgramLoginResponseFailed">Unable to process the login response (%1$s). Please share this error code.</string>
+    <string name="BotgramLoginSessionFailed">Unable to securely save your login state (%1$s). Please share this error code.</string>
+    <string name="BotgramConnectionSettings">Connection settings</string>
+    <string name="BotgramEnabled">On</string>
+    <string name="BotgramDisabled">Off</string>
+    <string name="BotgramLargeClientHello">Large ClientHello</string>
+    <string name="BotgramLargeClientHelloUnsupported">Large ClientHello requires Android 10 or later.</string>
+    <string name="BotgramLargeClientHelloHttpsRequired">Large ClientHello requires an HTTPS connection.</string>
     <string name="AppName">Telegram</string>
     <string name="AppNameBeta">Telegram Beta</string>
     <string name="LanguageName">English</string>

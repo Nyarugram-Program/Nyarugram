@@ -132,7 +132,7 @@ public final class BotgramTransport {
             try {
                 if (!enabled() || expired || credentials.token == null)
                     throw new BotgramApi.ApiError(401, "SESSION_EXPIRED");
-                value = operation.run(new BotgramApi(credentials.server, credentials.token));
+                value = operation.run(new BotgramApi(credentials.server, credentials.token, credentials.largeClientHello));
             } catch (BotgramApi.ApiError error) {
                 failure = error(error.status, error.getMessage());
                 if (error.status == 401) expire(credentials);
@@ -339,7 +339,7 @@ public final class BotgramTransport {
         if (revoke && token != null) {
             // Do not queue revocation behind slow chat requests or delay local logout.
             logouts.execute(() -> {
-                try { BotgramTransport.logoutRpc(new BotgramApi(server, token)); }
+                try { BotgramTransport.logoutRpc(new BotgramApi(server, token, credentials.largeClientHello)); }
                 catch (Exception ignored) { /* Local logout also works while offline. */ }
             });
         }
@@ -389,6 +389,40 @@ public final class BotgramTransport {
         expired = false; reachable = System.currentTimeMillis();
         start();
     }
+    private boolean changingTls;
+
+    public boolean largeClientHello() { return session.largeClientHello; }
+
+    public void setLargeClientHello(boolean enabled, java.util.function.Consumer<Boolean> completion) {
+        if (changingTls) return;
+        changingTls = true;
+        final BotgramSession credentials = session;
+        requests.execute(() -> {
+            boolean saved = false;
+            try {
+                credentials.setLargeClientHello(enabled);
+                if (session == credentials) {
+                    identities = null;
+                    identitySession = null;
+                }
+                saved = true;
+            } catch (java.io.IOException ignored) { }
+            final boolean success = saved;
+            AndroidUtilities.runOnUIThread(() -> {
+                changingTls = false;
+                if (session != credentials) return;
+                if (success) {
+                    events.stop();
+                    updateEvents();
+                    reachable = 0;
+                    publishState(true);
+                    start();
+                }
+                completion.accept(success);
+            });
+        });
+    }
+
     public int state() {
         if (!networkAvailable) return ConnectionsManager.ConnectionStateWaitingForNetwork;
         return !expired && reachable != 0 && System.currentTimeMillis() - reachable < 30_000
@@ -495,8 +529,9 @@ public final class BotgramTransport {
                     }
                     throw new BotgramApi.ApiError(403, "NYARUGRAM_GIFTS_UNAVAILABLE");
                 }
-                if (sessionApi == null || apiSession != credentials) {
-                    sessionApi = new BotgramApi(server, bearer);
+                if (sessionApi == null || apiSession != credentials
+                        || sessionApi.usesLargeClientHello() != credentials.largeClientHello) {
+                    sessionApi = new BotgramApi(server, bearer, credentials.largeClientHello);
                     apiSession = credentials;
                 }
                 BotgramApi api = sessionApi;
@@ -584,7 +619,7 @@ public final class BotgramTransport {
         try {
             if (job.cancelled || session != credentials || !enabled() || expired) return;
             if (bearer == null) throw new BotgramApi.ApiError(401, "SESSION_EXPIRED");
-            BotgramApi api = new BotgramApi(credentials.server, bearer);
+            BotgramApi api = new BotgramApi(credentials.server, bearer, credentials.largeClientHello);
             if (request instanceof TLRPC.TL_upload_saveFilePart) {
                 TLRPC.TL_upload_saveFilePart value = (TLRPC.TL_upload_saveFilePart) request;
                 api.uploadPart(value.file_id, value.file_part, 0, bufferBytes(value.bytes));
