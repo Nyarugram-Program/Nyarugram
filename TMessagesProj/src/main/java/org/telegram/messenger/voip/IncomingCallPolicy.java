@@ -13,7 +13,7 @@ public final class IncomingCallPolicy {
         public final int importance;
         public final String channelId;
         private boolean fullScreenClaimed;
-        private boolean foregroundClaimed;
+        private boolean automaticPageClaimed;
 
         private Decision(boolean special) {
             importance = special ? 4 : 3;
@@ -29,8 +29,12 @@ public final class IncomingCallPolicy {
         }
 
         public synchronized boolean claimAutomaticPage(boolean foreground, boolean screenOn) {
-            if (!foreground || !screenOn || foregroundClaimed) return false;
-            foregroundClaimed = true;
+            return claimAutomaticPage(foreground, screenOn, false);
+        }
+
+        public synchronized boolean claimAutomaticPage(boolean foreground, boolean screenOn, boolean backgroundAllowed) {
+            if (!screenOn || automaticPageClaimed || !foreground && !(importance == 4 && backgroundAllowed)) return false;
+            automaticPageClaimed = true;
             return true;
         }
     }

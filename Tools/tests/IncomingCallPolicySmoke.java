@@ -27,6 +27,16 @@ public final class IncomingCallPolicySmoke {
         check(calls.recover("sessionA", 0, 2, false) == special, "pre to service preserves exact decision and claim");
         check(calls.begin("sessionA", 0, 2, false, false) == special, "cancel mid-call cannot downgrade");
         check(!special.claimAutomaticPage(false, true), "special background uses only system FSI");
+        IncomingCallPolicy.Decision specialBackground = calls.begin("sessionA", 0, 20, false, true);
+        check(!specialBackground.claimAutomaticPage(false, true, false), "special background requires granted system permissions");
+        check(!specialBackground.claimAutomaticPage(false, false, true), "locked special background still uses system FSI");
+        check(specialBackground.claimAutomaticPage(false, true, true), "special unlocked background can open original call page");
+        check(!specialBackground.claimAutomaticPage(false, true, true), "duplicate background launch suppressed");
+        check(!specialBackground.claimAutomaticPage(true, true, true), "foreground takeover does not launch a second page");
+        check(!calls.begin("sessionA", 0, 21, false, false).claimAutomaticPage(false, true, true),
+                "ordinary background remains notification-only with overlay permission");
+        check(!calls.begin("sessionA", 0, 22, true, true).claimAutomaticPage(false, true, true),
+                "group background remains notification-only with overlay permission");
         check(calls.begin("sessionA", 1, 2, false, false).importance == 3, "account slot isolation");
         check(calls.begin("sessionB", 0, 2, false, false).importance == 3, "same slot new session isolation");
         check(calls.begin(null, 0, 3, false, true).importance == 3, "unknown authentication cannot upgrade");

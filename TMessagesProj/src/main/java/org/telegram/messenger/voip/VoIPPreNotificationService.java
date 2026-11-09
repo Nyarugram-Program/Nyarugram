@@ -359,18 +359,28 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
     public static State currentState;
 //    public static Intent pendingNotificationService;
 
-    /** Automatic direct presentation is limited to the visible, unlocked app. */
+    /** Special-care calls may use Android's granted overlay-permission BAL exception. */
     public static void openCallScreen(Context context, int account, long callId) {
-        // Background presentation belongs exclusively to the system full-screen intent.
         KeyguardManager keyguard = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
-        if (!IncomingCallNotifications.recover(account, callId, false).claimAutomaticPage(
-                !ApplicationLoader.mainInterfacePaused, ApplicationLoader.isScreenOn && !keyguard.isKeyguardLocked())) return;
+        boolean foreground = !ApplicationLoader.mainInterfacePaused;
+        boolean unlocked = ApplicationLoader.isScreenOn && !keyguard.isKeyguardLocked();
+        boolean backgroundAllowed = Build.VERSION.SDK_INT >= 23
+                && android.provider.Settings.canDrawOverlays(context)
+                && IncomingCallNotifications.fullScreenAllowed(context);
+        IncomingCallPolicy.Decision policy = IncomingCallNotifications.recover(account, callId, false);
+        if (!policy.claimAutomaticPage(foreground, unlocked, backgroundAllowed)) {
+            FileLog.d("Incoming call page skipped importance=" + policy.importance
+                    + " foreground=" + foreground + " unlocked=" + unlocked
+                    + " backgroundAllowed=" + backgroundAllowed);
+            return;
+        }
         Intent intent = new Intent(context, LaunchActivity.class);
         intent.setAction("voip");
         intent.putExtra("currentAccount", account);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         try {
             context.startActivity(intent);
+            FileLog.d("Incoming call page requested foreground=" + foreground);
         } catch (Throwable e) {
             FileLog.e(e);
         }
