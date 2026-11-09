@@ -27,9 +27,11 @@ idea {
     }
 }
 
+def botgramDependencyRoot = rootProject.file(providers.gradleProperty('botgramDependencyRoot').getOrElse('D:/BotgramBuild'))
+
 repositories {
     // Pinned local copy of org.signal:libsignal-android 0.86.5 and its client jar.
-    maven { url = uri('D:/BotgramBuild/maven-local') }
+    maven { url = uri(new File(botgramDependencyRoot, 'maven-local')) }
     mavenCentral()
     google()
 }
@@ -43,18 +45,18 @@ configurations.all {
     exclude group: 'androidx.recyclerview', module: 'recyclerview'
 }
 
-def botgramLibsignalAar = file('D:/BotgramBuild/maven-local/org/signal/libsignal-android/0.86.5/libsignal-android-0.86.5.aar')
-def botgramLibsignalJar = file('D:/BotgramBuild/maven-local/org/signal/libsignal-client/0.86.5/libsignal-client-0.86.5.jar')
+def botgramLibsignalAar = new File(botgramDependencyRoot, 'maven-local/org/signal/libsignal-android/0.86.5/libsignal-android-0.86.5.aar')
+def botgramLibsignalJar = new File(botgramDependencyRoot, 'maven-local/org/signal/libsignal-client/0.86.5/libsignal-client-0.86.5.jar')
 def botgramSha256 = { File value -> java.security.MessageDigest.getInstance('SHA-256').digest(value.bytes).encodeHex().toString() }
 if (!botgramLibsignalAar.exists() || botgramSha256(botgramLibsignalAar) != '771e9a188fa30d96cef5433638e7c9ec00975c7afb64f94cdff97281330a0b93'
         || !botgramLibsignalJar.exists() || botgramSha256(botgramLibsignalJar) != 'd300c272dae155b21ae8988f51b6b493001cd2d83f5d2f9ae15e743c7ff971bd') {
-    throw new GradleException('Missing or invalid pinned libsignal 0.86.5 in D:/BotgramBuild/maven-local')
+    throw new GradleException("Missing or invalid pinned libsignal 0.86.5 in ${botgramDependencyRoot}/maven-local")
 }
 
-def botgramProtobufLite = file('D:/BotgramBuild/protobuf/downloads/protobuf-javalite-3.25.8.jar')
+def botgramProtobufLite = new File(botgramDependencyRoot, 'protobuf/downloads/protobuf-javalite-3.25.8.jar')
 if (!botgramProtobufLite.exists() || java.security.MessageDigest.getInstance('SHA-256')
         .digest(botgramProtobufLite.bytes).encodeHex().toString() != '918bcc959cc0f5cb58798cec347a15d41cee9a1b8101c352954fd18d44e2e1c7') {
-    throw new GradleException('Missing or invalid pinned protobuf-javalite 3.25.8 in D:/BotgramBuild/protobuf/downloads')
+    throw new GradleException("Missing or invalid pinned protobuf-javalite 3.25.8 in ${botgramDependencyRoot}/protobuf/downloads")
 }
 
 // Keep the pinned upstream classes except for the receive-side reader compiled from source.
